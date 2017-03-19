@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"testing"
+	"time"
 )
 
 type testLog struct {
@@ -33,7 +34,10 @@ func TestLocalTunnel(t *testing.T) {
 		t.Fatal("failed to create LocalTunnel, error: ", err)
 	}
 
-	t.Log("sending test request")
+	// Sleep for 3s giving the server time to register
+	time.Sleep(3 * time.Second)
+
+	t.Log("sending test request to:", lt.URL())
 	res, err := http.Get(lt.URL())
 	if err != nil {
 		t.Fatal("failed to send GET request through tunnel, error: ", err)
