@@ -1,4 +1,4 @@
-LocalTunnel Client Library for Go
+LocalTunnel Client Library for Go [![Build Status](https://travis-ci.org/jonasfj/go-localtunnel.svg?branch=master)](https://travis-ci.org/jonasfj/go-localtunnel)
 =================================
 
 A [localtunnel.me](https://localtunnel.me) client library exposing localtunnel
