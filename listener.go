@@ -128,34 +128,58 @@ func (l *Listener) proxy() {
 		}
 		l.nConns.Add(1)
 
-		var n int
-		var b [1]byte
-		start := time.Now()
-		for n == 0 && err == nil {
-			n, err = c.Read(b[:])
-		}
+		err = l.handle(c)
 		if err != nil {
-			// Ignore if it took more than 30s
-			if start.Before(time.Now().Add(-30 * time.Second)) {
-				continue
-			}
 			l.abort(err)
-			break
 		}
-		l.nConns.Add(-1)
-		done := make(chan struct{})
-		l.incoming <- &conn{Conn: c, Buffer: b, Done: done}
-
-		// Wait for conn to be closed
-		select {
-		case <-done:
-		case <-l.context.Done():
-		}
-
-		// Always close the remote connection
-		c.Close()
 	}
 	l.done.Done()
+}
+
+func (l *Listener) handle(c net.Conn) error {
+	var n int
+	var err error
+	var b [1]byte
+
+	// Ensure that we close the connection if we not done reading before
+	// context.Done()
+	doneReading := make(chan struct{})
+	go func() {
+		select {
+		case <-doneReading:
+			return
+		case <-l.context.Done():
+			c.Close()
+		}
+	}()
+
+	start := time.Now()
+	for n == 0 && err == nil {
+		n, err = c.Read(b[:])
+	}
+	close(doneReading)
+	if err != nil {
+		// Ignore if it took more than 30s
+		if start.Before(time.Now().Add(-30 * time.Second)) {
+			c.Close()
+			return nil
+		}
+		return err
+	}
+	l.nConns.Add(-1)
+
+	done := make(chan struct{})
+	l.incoming <- &conn{Conn: c, Buffer: b, Done: done}
+
+	// Wait for conn to be closed
+	select {
+	case <-done:
+	case <-l.context.Done():
+	}
+
+	// Always close the remote connection
+	c.Close()
+	return nil
 }
 
 // Addr implements net.Addr
